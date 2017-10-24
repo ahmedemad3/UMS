@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- * ****************************************************************** 
+	* Copyrighted Material, Confidential, unauthorized review or * reproduction 
+	is prohibited, ad so can and will result in * legal action against violators 
+	* ****************************************************************** * *** 
+	Copyright Holders ******************************************* * ****************************************************************** 
+	* Government of Kingdom Of Bahrain (KOB) * Central Informatics Organization 
+	(CIO) * Governerate Data Network (GDN) * National Data Services Project (NDS) 
+	* The General Directorate of Information Technology (GDIT) * Application 
+	Transformation Project (ATP) * Civil Registration Service (CRS) * ________________________________________________________________________________ 
+	* Change Log * ________________________________________________________________________________ 
+	* VER USER Timestamp Activity * ________________________________________________________________________________ 
+	* * -->
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:aop="http://www.springframework.org/schema/aop"
+	xmlns:context="http://www.springframework.org/schema/context"
+	xmlns:jee="http://www.springframework.org/schema/jee" xmlns:lang="http://www.springframework.org/schema/lang"
+	xmlns:tx="http://www.springframework.org/schema/tx" xmlns:util="http://www.springframework.org/schema/util"
+	xmlns:p="http://www.springframework.org/schema/p"
+
+	xsi:schemaLocation="http://www.springframework.org/schema/beans 
+            http://www.springframework.org/schema/beans/spring-beans-3.2.xsd
+            http://www.springframework.org/schema/aop 
+            http://www.springframework.org/schema/aop/spring-aop-2.5.xsd 
+            http://www.springframework.org/schema/context
+            http://www.springframework.org/schema/context/spring-context-2.5.xsd 
+            http://www.springframework.org/schema/jee
+            http://www.springframework.org/schema/jee/spring-jee-2.5.xsd 
+            http://www.springframework.org/schema/lang
+            http://www.springframework.org/schema/lang/spring-lang-2.5.xsd 
+            http://www.springframework.org/schema/tx
+            http://www.springframework.org/schema/tx/spring-tx-3.1.xsd 
+            http://www.springframework.org/schema/util
+            http://www.springframework.org/schema/util/spring-util-2.5.xsd 
+">
+
+	<!-- Load in application properties reference -->
+	<bean id="applicationProperties"
+		class="org.springframework.beans.factory.config.PropertyPlaceholderConfigurer">
+		<property name="locations">
+			<list>
+				<value>/META-INF/db.properties</value>
+			</list>
+		</property>
+	</bean>
+
+	<!-- Data Sources -->
+	<bean id="main-ds" destroy-method="close"
+		class="org.apache.commons.dbcp.BasicDataSource">
+		<property name="driverClassName" value="${db.driverclass}" />
+		<property name="url" value="${db.url}" />
+		<property name="username" value="${db.user}" />
+		<property name="password" value="${db.password}" />
+		<property name="testOnBorrow" value="true"></property>
+		<property name="testWhileIdle" value="true"></property>
+		<property name="testOnReturn" value="true"></property>
+		<property name="validationQuery" value="select 1 from sysibm.sysdummy1 "></property>
+		<property name="initialSize" value="20"></property>
+		<property name="maxActive" value="15"></property>
+	</bean>
+
+	<!-- Distributed Transaction Manager Definition -->
+	<bean id="transactionManager"
+		class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
+		<property name="dataSource" ref="main-ds" />
+	</bean>
+
+	<tx:annotation-driven transaction-manager="transactionManager" />
+
+
+<!--  
+	<bean id="passwordEncoder"
+		class="org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder" />
+-->
+
+	<!-- Data Access Templates -->
+	<bean id="jdbcTemplate"
+		class="org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate">
+		<constructor-arg ref="main-ds" />
+		
+	</bean>
+
+	<bean id="daoSupport"
+		class="org.springframework.jdbc.core.namedparam.NamedParameterJdbcDaoSupport">
+		<property name="dataSource" ref="main-ds" />
+	</bean>
+
+	<bean id="umsBaseDao" class="bh.gov.iga.ums.utility.dataaccess.UmsBaseDAO"
+		abstract="true">
+		<property name="daoSupport" ref="daoSupport" />
+		<property name="umsQueries" ref="umsQueryMap" />
+	<!--  <property name="passwordEncoder" ref="passwordEncoder" /> -->	
+	</bean>
+
+
+
+	<bean id="umsQueryMap" class="java.util.HashMap">
+		<constructor-arg>
+			<map key-type="java.lang.String" value-type="java.lang.String">
+			
+				<entry key="TEST_QUERY" value="select 1 from sysibm.sysdummy1" />
+				<entry key="GET_USER_BY_USERNAME_QUERY" value="SELECT USER_ID, USER_NAME, CREATED_BY, CREATED_ON, UPDATED_BY, UPDATED_ON, EMAIL, PASSWORD, DELETED FROM USER WHERE USER_NAME =:USER_NAME"></entry>
+				<entry key="IS_USERNAME_EXISTS_QUERY" value="SELECT USER_ID FROM USER WHERE LOWER(USER_NAME)=LOWER(:USER_NAME) "></entry>
+				<entry key="GET_USER_QUERY" value="SELECT USER_ID , USER_NAME , EMAIL , DELETED  FROM USER"></entry>
+				<entry key="GET_USER_BY_EMAIL_QUERY" value="SELECT USER_ID, USER_NAME, CREATED_BY, CREATED_ON, UPDATED_BY, UPDATED_ON, EMAIL, PASSWORD, DELETED FROM USER WHERE USER_NAME =:EMAIL"></entry>
+				<entry key="UPDATE_PASSWORD_QUERY" value="UPDATE USER SET PASSWORD=:PASSWORD ,UPDATED_BY=:UPDATED_BY, UPDATED_ON=:UPDATED_ON WHERE USER_NAME= :USER_NAME"></entry>
+				<entry key="IS_USERNAME_ACTIVE_QUERY" value="SELECT ACTIVE FROM USER WHERE LOWER(USER_NAME)=LOWER(:USER_NAME) "></entry>
+				<entry key="DISABLE_USER_QUERY" value="UPDATE USER SET ACTIVE = 0 , UPDATED_BY=:UPDATED_BY , UPDATED_ON=:UPDATED_ON WHERE LOWER(USER_NAME) = LOWER(:USER_NAME)"></entry>
+				<entry key="ENABLE_USER_QUERY" value="UPDATE USER SET ACTIVE = 1 , UPDATED_BY=:UPDATED_BY , UPDATED_ON=:UPDATED_ON WHERE LOWER(USER_NAME) = LOWER(:USER_NAME)"></entry>
+				<entry key="GET_USER_ROLES_QUERY" value=" SELECT r.ROLE_ID AS ROLE_ID , r.ROLE_NAME AS ROLE_NAME  FROM USER u, group g , role r , user_group ug , group_role gr 
+						  								  WHERE u.user_id = ug.user_id and g.group_id = ug.group_id and g.group_id = gr.group_id and (u.deleted=0 or u.deleted is null) 
+														  and (g.deleted=0 or g.deleted is null) and r.role_id = gr.role_id and LOWER(u.USER_NAME)=LOWER(:USER_NAME) "></entry>
+				
+				<entry key="SAVE_NEW_USER_QUERY" value="INSERT INTO USER(USER_NAME, EMAIL, PASSWORD, CREATED_BY, CREATED_ON , ACTIVE) VALUES(:USER_NAME, :EMAIL, :PASSWORD, :CREATED_BY, :CREATED_ON , 1)"></entry>	
+				<entry key="UPDATE_USER_QUERY" value="UPDATE USER SET EMAIL= :EMAIL , ACTIVE= :ACTIVE , UPDATED_BY= :UPDATED_BY ,UPDATED_ON= :UPDATED_ON  WHERE USER_NAME = :USER_NAME "></entry>													  
+				<entry key="DELETE_USER_QUERY" value="UPDATE USER SET DELETED = 0 , UPDATED_BY= :UPDATED_BY ,UPDATED_ON= :UPDATED_ON  WHERE USER_ID = :USER_ID "></entry>	
+				<entry key="GET_USER_GROUPS_QUERY" value="SELECT G.GROUP_ID AS GROUP_ID , G.GROUP_NAME AS GROUP_NAME FROM GROUP G , USER_GROUP UG WHERE G.GROUP_ID = UG.GROUP_ID AND UG.USER_ID= :USER_ID AND (G.DELETED=0 OR G.DELETED IS NULL)"></entry>		
+				<entry key="SAVE_NEW_GROUP_QUERY" value="INSERT INTO GROUP(GROUP_NAME, CREATED_BY, CREATED_ON) VALUES(:GROUP_NAME , :CREATED_BY , :CREATED_ON)"></entry>
+				<entry key="ADD_GROUP_ROLES_QUERY" value="INSERT INTO GROUP_ROLE(GROUP_ID, ROLE_ID)  VALUES(?, ?)"></entry>		
+				<entry key="DELETE_GROUP_QUERY" value="UPDATE GROUP  SET DELETED=1 , UPDATED_BY=:UPDATED_BY, UPDATED_ON=:UPDATED_ON WHERE GROUP_ID=:GROUP_ID"></entry>
+				<entry key="ADD_GROUPS_TO_USER_QUERY" value="INSERT INTO USER_GROUP(USER_ID, GROUP_ID) VALUES(?,?)"></entry>			
+				<entry key="GET_GROUPS_QUERY" value="SELECT GROUP_ID, GROUP_NAME FROM GROUP WHERE (DELETED=0 OR DELETED IS NULL)"></entry>		
+				<entry key="GET_GROUP_ROLES" value="SELECT R.ROLE_ID AS ROLE_ID , R.ROLE_NAME AS ROLE_NAME FROM ROLE R , GROUP_ROLE GR WHERE R.ROLE_ID = GR.ROLE_ID AND GR.GROUP_ID = :GROUP_ID "></entry>
+				<entry key="IS_USER_EMAIL_EXIST_QUERY" value="SELECT USER_ID FROM USER WHERE LOWER(EMAIL) = LOWER(:EMAIL) AND (DELETED IS NULL OR DELETED = 0)"></entry>	
+				<entry key="GET_GROUP_USERS" 
+									value="SELECT U.USER_ID, U.USER_NAME, U.CREATED_BY, U.CREATED_ON, U.UPDATED_BY, U.UPDATED_ON, U.EMAIL, U.PASSWORD, U.DELETED 
+										FROM USER AS U INNER JOIN USER_GROUP AS UG ON U.USER_ID = UG.USER_ID WHERE UG.GROUP_ID = 1 AND (U.DELETED = 0 OR U.DELETED IS NULL)"></entry>	
+										
+				<entry key="RESET_USER_PASSWORD_QUERY" value="UPDATE USER SET PASSWORD=:PASSWORD ,UPDATED_BY=:UPDATED_BY, UPDATED_ON=:UPDATED_ON WHERE USER_NAME= :USER_NAME"></entry>
+				<entry key="ENABLE_GROUP_QUERY" value="UPDATE GROUP  SET DELETED=0 , UPDATED_BY=:UPDATED_BY, UPDATED_ON=:UPDATED_ON WHERE GROUP_ID=:GROUP_ID"></entry>	
+				
+				<entry key="UPDATE_GROUP_QUERY"
+					value="UPDATE GROUP SET GROUP_NAME=:GROUP_NAME, UPDATED_BY=:UPDATED_BY, UPDATED_ON=:UPDATED_ON WHERE GROUP_ID =:GROUP_ID"></entry>
+					
+				<entry key="DELETE_ROLES_BY_GROUP_ID_QUERY"
+					value="DELETE FROM GROUP_ROLE WHERE GROUP_ID=:GROUP_ID"></entry>						  
+				
+			</map>
+		</constructor-arg>
+	</bean>
+
+	<!-- Write here your own dao ,  this is an example   -->
+	<bean id="userDao" class="bh.gov.iga.ums.utility.dataaccess.UserDAO" parent="umsBaseDao" />
+	<bean id="groupDao" class="bh.gov.iga.ums.utility.dataaccess.GroupDAO" parent="umsBaseDao" />
+	
+	<bean name="userService"
+		class="bh.gov.iga.ums.utility.management.UserService">
+		<property name="userDAO" ref="userDao" />
+	</bean>
+
+	<bean name="groupService"
+		class="bh.gov.iga.ums.utility.management.GroupService">
+		<property name="groupDAO" ref="groupDao" />
+	</bean>
+</beans>
